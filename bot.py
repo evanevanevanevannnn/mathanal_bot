@@ -77,23 +77,23 @@ for event in longpoll.listen():
     if event.type == VkBotEventType.MESSAGE_NEW:
         message = event.object.message
 
-        if (vk_map[message['from_id']] not in _106):
+        if (message['from_id'] not in vk_map):
             continue
 
         text = [i for i in message['text'].split(' ') if len(i) != 0]
         if (text[0] == '\\distribution'):
-            print('here')
             for problem in solved_problems:
-                print(problem)
                 solutions = sorted(solved_problems[problem], key=lambda x: _106[x])
-                unique_solutions = [i for i in solutions if i not  in solved_something]
+                unique_solutions = [i for i in solutions if i not in solved_something]
                 solver = unique_solutions[0] if len(unique_solutions) != 0 else solutions[0]
 
                 solved_something.add(solver)
                 vk.messages.send(peer_id=Peer_id, message=(problem + ' : ' + solver), random_id=time.time())
                 time.sleep(1)
 
-            exit(0)
+            solved_problems = dict()
+            solved_something = set()
+            _106 = read_106()
 
         elif (text[0] == '\\solved'):
             problems = text[1:]
@@ -101,14 +101,7 @@ for event in longpoll.listen():
             for problem in problems:
                 if (problem not in solved_problems):
                     solved_problems[problem] = list()
-
-                if (vk_map[message['from_id']] not in solved_problems[problem]):
-                    solved_problems[problem].append(vk_map[message['from_id']])
-
-        elif (text == '\\restart'):
-            solved_problems = dict()
-            solved_something = set()
-            _106 = read_106()
+                solved_problems[problem].append(vk_map[message['from_id']])
 
         elif (text == '\\exit'):
             exit(0)
