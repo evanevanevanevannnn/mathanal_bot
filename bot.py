@@ -63,6 +63,8 @@ def read_106():
 
         _106[name] = points
 
+    print(_106)
+
     return _106
 
 vk_session = vk_api.VkApi(token=Token)
@@ -76,7 +78,7 @@ _106 = read_106()
 for event in longpoll.listen():
     if event.type == VkBotEventType.MESSAGE_NEW:
         message = event.object.message
-
+        
         if (message['from_id'] not in vk_map):
             continue
 
@@ -103,5 +105,12 @@ for event in longpoll.listen():
                     solved_problems[problem] = list()
                 solved_problems[problem].append(vk_map[message['from_id']])
 
-        elif (text == '\\exit'):
+        elif (text[0] == '\\not_solved'):
+            problems = text[1:]
+
+            for problem in problems:
+                if (probmel in solved_problems):
+                    solved_problems[problem].remove(vk_map[message['from_id']])
+
+        elif (text[0] == '\\exit'):
             exit(0)
