@@ -63,8 +63,6 @@ def read_106():
 
         _106[name] = points
 
-    print(_106)
-
     return _106
 
 vk_session = vk_api.VkApi(token=Token)
