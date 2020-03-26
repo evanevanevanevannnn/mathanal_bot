@@ -42,6 +42,17 @@ def safe_int(string):
     except:
         return 0
 
+def dict_to_str(d):
+    string = str(d)
+    string = string.replace('{', '')
+    string = string.replace('}', '')
+    string = string.replace("'", '')
+    string = string.replace('[', '')
+    string = string.replace(']', '')
+    string = string.replace(', ', '\n')
+
+    return string
+
 def read_106():
     file_id = '1JzzFqaHb04bA_w_V8RJNT2YdOhCCfQUtggZlZU4mqHc'
     url = "https://docs.google.com/spreadsheets/d/{0}/export?format=csv".format(file_id)
@@ -81,15 +92,22 @@ for event in longpoll.listen():
             continue
 
         text = [i for i in message['text'].split(' ') if len(i) != 0]
+
         if (text[0] == '\\distribution'):
+            answer_text = ''
+
             for problem in solved_problems:
                 solutions = sorted(solved_problems[problem], key=lambda x: _106[x])
                 unique_solutions = [i for i in solutions if i not in solved_something]
-                solver = unique_solutions[0] if len(unique_solutions) != 0 else solutions[0]
+                try:
+                    solver = unique_solutions[0] if len(unique_solutions) != 0 else solutions[0]
+                except:
+                    solver = 'fucking nobody'
 
                 solved_something.add(solver)
-                vk.messages.send(peer_id=Peer_id, message=(problem + ' : ' + solver), random_id=time.time())
-                time.sleep(1)
+                answer_text += problem + ' : ' + solver + '\n'
+
+            vk.messages.send(peer_id=Peer_id, message=answer_text, random_id=time.time())
 
             solved_problems = dict()
             solved_something = set()
@@ -107,8 +125,24 @@ for event in longpoll.listen():
             problems = text[1:]
 
             for problem in problems:
-                if (probmel in solved_problems):
+                if (problem in solved_problems):
                     solved_problems[problem].remove(vk_map[message['from_id']])
+
+                    if (len(solved_problems[problem]) == 0):
+                        solved_problems.pop(problem, None)
+
+        elif (text[0] == '\\important'):
+            problems = text[1:]
+
+            for problem in problems:
+                if (problem not in solved_problems):
+                    solved_problems[problem] = list()
+
+        elif (text[0] == '\\debug'):
+            vk.messages.send(peer_id=Peer_id, message=dict_to_str(solved_problems), random_id=time.time())
+
+        elif (text[0] == '\\debug_2'):
+            vk.messages.send(peer_id=Peer_id, message=dict_to_str(_106), random_id=time.time())
 
         elif (text[0] == '\\exit'):
             exit(0)
