@@ -79,7 +79,45 @@ def otformatirovat2(d):
     return string
 
 def seems_like_problem(problem):
-    return True
+    t = problem.split('.')
+
+    if (len(t) != 2):
+        return False
+
+    N = t[0]
+    try:
+        N = int(N)
+    except:
+        return False
+
+    n = t[1]
+    if (n.find('(') == -1):
+        try:
+            n = int(n)
+            return True
+        except:
+            return False
+    else:
+        n = n.replace('(', ' ')
+        n = n.replace(')', '')
+
+        t2 = n.split(' ')
+
+        if (len(t2) != 2):
+            return False
+
+        n = t2[0]
+        l = t2[1]
+
+        try:
+            n = int(n)
+        except:
+            return False
+
+        if not (l >= 'а' and l <= 'я'):
+            return False
+
+        return True
 
 def sorted_by_key(d):
     res = dict()
@@ -111,7 +149,7 @@ def read_106():
 
     return sorted_by_key(unsorted_106)
 
-def read_solved_problems():
+def read_solved_problems(): #yet unused
     global solved_problems
 
     f = open('solved_problems.txt', 'r')
@@ -119,7 +157,7 @@ def read_solved_problems():
     for line in f:
         solved_problems[line.split(':')[0]] = line.split(':')[1][1:].split(',')
 
-def write_solved_problems():
+def write_solved_problems(): #yet unused
     f = open('solved_problems.txt', 'w')
 
     for problem in solved_problems:
@@ -159,8 +197,6 @@ def solved(message, forced=False):
         message_text = 'данные номера: ' + otformatirovat(not_problems) + ' выглядят так, будто вы описались. если это не так используйте \\force_solved.'
         vk.messages.send(peer_id=Peer_id, message=message_text, random_id=time.time())
         time.sleep(1)
-
-    write_solved_problems()
 
 def not_solved(message):
     problems = [i for i in message['text'].split(' ') if len(i) != 0][1:]
