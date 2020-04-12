@@ -131,7 +131,7 @@ def sorted_by_key(d):
 
     return res
 
-def read_table(file_id, gid):
+def read_table(file_id, g_id):
     url = "https://docs.google.com/spreadsheets/d/{0}/export?format=csv&gid={1}".format(file_id, gid)
 
     r = requests.get(url)
@@ -140,8 +140,11 @@ def read_table(file_id, gid):
     return csv.reader(sio, dialect=csv.excel)
 
 def read_106():
+    global _106
+
     file_id = '1JzzFqaHb04bA_w_V8RJNT2YdOhCCfQUtggZlZU4mqHc'
-    table = read_table(file_id, 0)
+    g_id1, g_id2 = 0, 1979959699
+    table = read_table(file_id, g_id1)
 
     unsorted_106 = dict()
     for row in table:
@@ -154,7 +157,7 @@ def read_106():
 
         unsorted_106[name] = points
 
-    table = read_table(file_id, 1979959699)
+    table = read_table(file_id, g_id2)
     for row in table:
 
         if (row[0] == '' or row[0] == 'ФИО'):
@@ -165,7 +168,7 @@ def read_106():
 
         unsorted_106[name] += points
 
-    return sorted_by_key(unsorted_106)
+    _106 = sorted_by_key(unsorted_106)
 
 def read_solved_problems():
     global solved_problems
