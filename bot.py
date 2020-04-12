@@ -8,7 +8,7 @@ Token = '55231cb8b6506f19461ce9d469269f702a28b2f6552e3e290eea74a5fb30bfc27a71b72
 FORCED = False
 Peer_id = 2000000001
 Peer_id2 = 2000000002
-inf = 10**10
+inf = -1000
 
 ignored = set()
 
@@ -75,7 +75,7 @@ def otformatirovat2(d):
     string = string.replace('}', '')
     string = string.replace("'", "")
     string = string.replace(', ', '\n')
-    string = string.replace('10000000000', 'inf')
+    string = string.replace('1000', 'inf')
 
     return string
 
