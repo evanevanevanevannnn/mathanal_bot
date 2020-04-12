@@ -132,7 +132,7 @@ def sorted_by_key(d):
     return res
 
 def read_table(file_id, g_id):
-    url = "https://docs.google.com/spreadsheets/d/{0}/export?format=csv&gid={1}".format(file_id, gid)
+    url = "https://docs.google.com/spreadsheets/d/{0}/export?format=csv&gid={1}".format(file_id, g_id)
 
     r = requests.get(url)
     sio = io.StringIO( r.content.decode('utf-8'), newline=None)
@@ -538,7 +538,7 @@ def stop_bot(message):
 
 #--------------сам бот----------------
 
-_106 = read_106()
+read_106()
 
 if (len(sys.argv) > 1 and sys.argv[1] == '-r'):
     read_solved_problems()
