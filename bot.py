@@ -1,12 +1,13 @@
 import time, vk_api, csv, requests, io, sys, random
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
+from subprocess import check_output
 
 #---------------константы------------------
 
 Token = '55231cb8b6506f19461ce9d469269f702a28b2f6552e3e290eea74a5fb30bfc27a71b728cb9fca9a4c871'
 FORCED = False
-UNIQUE = False
 Peer_id = 2000000001
+Peer_id2 = 2000000002
 inf = 10**10
 
 ignored = set()
@@ -204,6 +205,61 @@ def write_solved_problems():
 
     f.write(solved_problems_in_str_form)
 
+def get_distribution():
+    if (len(solved_problems) == 0):
+        return dict()
+
+    argv = ['', '']
+
+    argv[0] = './distribution/distribution'
+
+    first = True
+    for man in _106:
+        if first:
+            first = False
+        else:
+            argv[1] += ';'
+
+        argv[1] += man + ':' + str(_106[man])
+
+    argv[1] += '#'
+
+    first = True
+    for problem in solved_problems:
+        if first:
+            first = False
+        else:
+            argv[1] += ';'
+
+        argv[1] += problem + ':'
+        first = True
+        for man in solved_problems[problem]:
+            if first:
+                first = False
+            else:
+                argv[1] += ','
+            argv[1] += man
+
+    try:
+        distribution_str = check_output(argv).decode('utf-8')
+    except Exception as e:
+        print(e)
+        return -1
+
+    distribution = dict()
+    for pair in distribution_str.split(';'):
+        distribution[pair.split(':')[0]] = pair.split(':')[1]
+
+    return distribution
+
+def send_message(Text, Peer_id):
+    try:
+        vk.messages.send(message=Text, peer_id=Peer_id, random_id=time.time(), timeout=10)
+    except Exception as e:
+        print(e)
+        send_message(Text, Peer_id)
+    time.sleep(1)
+
 #---------------команды бота-------------------
 
 def restart(message):
@@ -242,9 +298,8 @@ def solved(message, forced=False):
             solved_problems[problem].append(solver)
 
     if (len(not_problems) != 0):
-        message_text = 'данные номера: ' + otformatirovat(not_problems) + ' выглядят так, будто вы описались. если это не так используйте \\force_solved.'
-        vk.messages.send(peer_id=Peer_id, message=message_text, random_id=time.time())
-        time.sleep(1)
+        message_text = 'данные номера: ' + otformatirovat(not_problems) + ' выглядят так, будто вы описались. Убедитесь, что вы используете русские буквы. Если вы не описались используйте \\force_solved.'
+        send_message(message_text, message['peer_id'])
 
     for problem in solved_problems:
         solved_problems[problem] = sorted(solved_problems[problem], key=lambda x: _106[x])
@@ -268,8 +323,7 @@ def not_solved(message):
     message_text = ''
     if (len(not_solved) != 0):
         message_text = 'не уверен, что вы решили следующие задачки: ' + otformatirovat(not_solved) + '. проверьте не описались ли вы))'
-        vk.messages.send(peer_id=Peer_id, message=message_text, random_id=time.time())
-        time.sleep(1)
+        send_message(message_text, message['peer_id'])
 
     write_solved_problems()
 
@@ -289,64 +343,79 @@ def increase_priority(message):
 
     if (len(not_in_106) != 0):
         message_text = 'не нашел ' + otformatirovat(not_in_106) + ' в 106 группе)) Попробуйте написать фамилии по русски, желательно как в журнале Орлова.'
-        vk.messages.send(peer_id=Peer_id, message=message_text, random_id=time.time())
-        time.sleep(1)
+        send_message(message_text, message['peer_id'])
 
     write_solved_problems()
         
-def distribution():
+def distribution(message):
+    distribution = get_distribution()
     message_text = ''
-    solved_something = set()
+
+    if (distribution == -1):
+        send_message('что-то сломалось, и вы вряд ли сможете что-то с этим сделать))', message['peer_id'])
+        return
 
     for problem in solved_problems:
-        solutions = solved_problems[problem]
-        unique_solutions = [i for i in solutions if i not in solved_something]
-
-        if (UNIQUE):
-            solver = unique_solutions[0] if len(unique_solutions) != 0 else solutions[0]
+        if problem in distribution:
+            solver = distribution[problem]
+            message_text += problem + ': @id' + str(find_id(solver)) + '(' + solver + ')\n'
         else:
-            solver = solutions[0]
-
-        solved_something.add(solver)
-        message_text += problem + ' : @id' + str(find_id(solver)) + '(' + solver + ')' + '\n'
+            message_text += problem + ': никто))' 
 
     if (len(message_text) != 0):
-        vk.messages.send(peer_id=Peer_id, message=('распределение:\n' + message_text), random_id=time.time())
-        time.sleep(1)
+        send_message('распределение:\n' + message_text, message['peer_id'])
 
 def wa(message):
     global solved_problems
 
     problems = [i for i in message['text'].split(' ') if len(i) != 0][1:]
+    distribution = get_distribution()
     not_problems = list()
     message_text = ''
+
+    if (distribution == -1):
+        send_message('что-то сломалось, и вы вряд ли сможете что-то с этим сделать))', message['peer_id'])
+        return
 
     for problem in problems:
         if (problem not in solved_problems):
             not_problems.append(problem)
             continue
 
-        solved_problems[problem] = solved_problems[problem][1:]
-
-        if (len(solved_problems[problem]) == 0):
-            solved_problems.pop(problem)
-            message_text += problem + ' : никто:)))\n'
+        if (problem not in distribution):
+            message_text += problem + ' : все еще никто)))\n' 
         else:
-            solver = solved_problems[problem][0]
-            message_text += problem + ' : @id' + str(find_id(solver)) + '(' + solver + ')' + '\n'
+            solved_problems[problem].remove(distribution[problem])
+
+            if (len(solved_problems[problem]) == 0):
+                solved_problems.pop(problem)
+
+    distribution = get_distribution()
+
+    if (distribution == -1):
+        send_message('что-то сломалось, и вы вряд ли сможете что-то с этим сделать))', message['peer_id'])
+        return
+
+    for problem in problems:
+        if (problem in not_problems):
+            continue
+
+        if (problem not in distribution):
+            message_text += problem + ' : никто)))\n'
+        else:
+            solver = distribution[problem]
+            message_text += problem + ': @id' + str(find_id(solver)) + '(' + solver + ')\n'
 
     if (len(message_text) != 0):
-        vk.messages.send(peer_id=Peer_id, message=message_text, random_id=time.time())
-        time.sleep(1)
+        send_message(message_text, message['peer_id'])
     
     if (len(not_problems) != 0):
         message_text = 'не нашел данные номера: ' + otformatirovat(not_problems) + ' в моем блокнотике решений. проверьте, не описались ли вы))'
-        vk.message.send(peer_id=Peer_id, message=message_text, random_id=time.time())
-        time.sleep(1)
+        send_message(message_text, message['peer_id'])
 
     write_solved_problems()
 
-def debug():
+def debug(message):
     message_text = ''
 
     for problem in solved_problems:
@@ -358,14 +427,12 @@ def debug():
         if (len(high_pr) != 0):
             message_text += '\n\nНапоминаю, что следующим людям: ' + otformatirovat(high_pr) + ' желательно решить хотя бы одну задачку.'
 
-        vk.messages.send(peer_id=Peer_id, message=('debug:\n' + message_text), random_id=time.time())
+        send_message('debug:\n' + message_text, message['peer_id'])
     else:
-        vk.messages.send(peer_id=Peer_id, message='никто ничего не решил))', random_id=time.time())
-    time.sleep(1)
+        send_message('никто ничего не решил))', message['peer_id'])
 
-def debug_2():
-    vk.messages.send(peer_id=Peer_id, message=('debug_2:\n' + otformatirovat2(_106)), random_id=time.time())
-    time.sleep(1)
+def debug_2(message):
+    send_message('debug_2:\n' + otformatirovat2(_106), message['peer_id'])
 
 def enable_forced(message):
     if (vk_map[message['from_id']] not in admins):
@@ -374,14 +441,6 @@ def enable_forced(message):
     global FORCED
     mode = [i for i in message['text'].split(' ') if len(i) != 0][1]
     FORCED = (mode == '1')
-
-def enable_unique(message):
-    if (vk_map[message['from_id']] not in admins):
-        return
-
-    global UNIQUE
-    mode = [i for i in message['text'].split(' ') if len(i) != 0][1]
-    UNIQUE = (mode == '1')
 
 def switch_mute(message, state):
     if (vk_map[message['from_id']] not in admins):
@@ -466,10 +525,9 @@ def help(message):
 
                         7) \\help - выводит "документацию"
 
-                        *в моем несложном понимании правильная запись номера представляется в виде: число.число[(буква)]''' 
+                        *в моем несложном понимании правильная запись номера представляется в виде: число.число[(русская буква)]''' 
 
-    vk.messages.send(peer_id=Peer_id, message=documentation, random_id=time.time())
-    time.sleep(1)
+    send_message(documentation, message['peer_id'])
 
 def stop_bot(message):
     if (vk_map[message['from_id']] in admins):
@@ -482,66 +540,75 @@ _106 = read_106()
 if (len(sys.argv) > 1 and sys.argv[1] == '-r'):
     read_solved_problems()
 
-for event in longpoll.listen():
-    if event.type == VkBotEventType.MESSAGE_NEW:
-        message = event.object.message
-        text = [i for i in message['text'].split(' ') if len(i) != 0]
+def main():
+    try:
+        for event in longpoll.listen():
+            if event.type == VkBotEventType.MESSAGE_NEW:
+                message = event.object.message
 
-        if (len(text) == 0):
-            continue
+                if (message['peer_id'] != Peer_id and message['peer_id'] != Peer_id2):
+                    continue
 
-        if (vk_map[message['from_id']] in ignored):
-            continue
+                text = [i for i in message['text'].split(' ') if len(i) != 0]
 
-        command = text[0]
+                if (len(text) == 0):
+                    continue
 
-        if (command == '\\restart'):
-            restart(message)
+                if (vk_map[message['from_id']] in ignored):
+                    continue
 
-        elif (command == '\\solved'):
-            solved(message, FORCED)
+                command = text[0]
 
-        elif (command == '\\force_solved'):
-            solved(message, True)
+                if (command == '\\restart'):
+                    restart(message)
 
-        elif (command == '\\not_solved'):
-            not_solved(message)
+                elif (command == '\\solved'):
+                    solved(message, FORCED)
 
-        elif (command == '\\high_priority'):
-            increase_priority(message)
+                elif (command == '\\force_solved'):
+                    solved(message, True)
 
-        elif (command == '\\distribution'):
-            distribution()
+                elif (command == '\\not_solved'):
+                    not_solved(message)
 
-        elif (command == '\\wa'):
-            wa(message)
+                elif (command == '\\high_priority'):
+                    increase_priority(message)
 
-        elif (command == '\\debug'):
-            debug()
+                elif (command == '\\distribution'):
+                    distribution(message)
 
-        elif (command == '\\debug_2'):
-            debug_2()
+                elif (command == '\\wa'):
+                    wa(message)
 
-        elif (command == '\\help'):
-            help(message)
+                elif (command == '\\debug'):
+                    debug(message)
 
-        elif (command == '\\mute'):
-            switch_mute(message, True)
+                elif (command == '\\debug_2'):
+                    debug_2(message)
 
-        elif (command == '\\unmute'):
-            switch_mute(message, False)
+                elif (command == '\\help'):
+                    help(message)
 
-        elif (command == '\\enable_forced'):
-            enable_forced(message)
+                elif (command == '\\mute'):
+                    switch_mute(message, True)
 
-        elif (command == '\\enable_unique'):
-            enable_unique(message)
+                elif (command == '\\unmute'):
+                    switch_mute(message, False)
 
-        elif (command == '\\remove_problem'):
-            remove_problem(message)
+                elif (command == '\\enable_forced'):
+                    enable_forced(message)
 
-        elif (command == '\\add_solution'):
-            add_solution(message)
+                elif (command == '\\remove_problem'):
+                    remove_problem(message)
 
-        elif (command == '\\die'):
-            stop_bot(message)
+                elif (command == '\\add_solution'):
+                    add_solution(message)
+
+                elif (command == '\\exit'):
+                    stop_bot(message)
+    except Exception as e:
+        print(e)
+        time.sleep(30)
+        main()
+
+main()
