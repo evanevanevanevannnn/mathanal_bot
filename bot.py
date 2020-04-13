@@ -8,7 +8,7 @@ Token = '55231cb8b6506f19461ce9d469269f702a28b2f6552e3e290eea74a5fb30bfc27a71b72
 FORCED = False
 Peer_id = 2000000001
 Peer_id2 = 2000000002
-inf = -1000
+inf = 1000
 
 ignored = set()
 
@@ -123,11 +123,33 @@ def seems_like_problem(problem):
 
         return True
 
-def sorted_by_key(d):
+def problem_comparator(problem):
+    problem = problem[0]
+
+    if (not seems_like_problem(problem)):
+        return -inf
+
+    ln, rn = problem.split('.')
+    lt = 0
+
+    if (rn.find('(') != -1):
+        rn, lt = rn.replace('(', ' ').replace(')', '').split(' ')
+
+    ln = int(ln)
+    rn = int(rn)
+    lt = ord(lt) - ord('а')   #русская а
+    return (inf**2) * ln + inf * rn + lt
+
+def sorted_by_key(d, Key, Mode):
     res = dict()
 
-    for item in sorted(d.items(), key=lambda x: -x[1]):
+    for item in sorted(d.items(), key=Key):
         res[item[0]] = item[1]
+
+        if (Mode == 1):
+            res[item[0]] = item[1]
+        elif (Mode == 2):
+            res[item[0]] = sorted(item[1], key=lambda x: _106[x])
 
     return res
 
@@ -168,7 +190,7 @@ def read_106():
 
         unsorted_106[name] += points
 
-    _106 = sorted_by_key(unsorted_106)
+    _106 = sorted_by_key(unsorted_106, lambda x:-x[1], 1)
 
 def read_solved_problems():
     global solved_problems
@@ -186,7 +208,8 @@ def read_solved_problems():
         else:
             solved_problems[lst[0]] = lst[1][1:].split(',')
 
-    _106 = sorted_by_key(_106)
+    solved_problems = sorted_by_key(solved_problems, problem_comparator, 2)
+    _106 = sorted_by_key(_106, lambda x: -x[1], 1)
 
 def write_solved_problems():
     f = open('solved_problems.txt', 'w')
@@ -209,9 +232,6 @@ def write_solved_problems():
     f.write(solved_problems_in_str_form)
 
 def get_distribution():
-    if (len(solved_problems) == 0):
-        return dict()
-
     argv = ['', '']
 
     argv[0] = './distribution/distribution'
@@ -269,23 +289,25 @@ def restart(message):
     if (vk_map[message['from_id']] not in admins):
         return
 
-    global solved_problems, solved_something, _106
+    global solved_problems, _106
     args = [i for i in message['text'].split(' ') if len(i) != 0][1:]
 
     if (len(args) == 0):
         solved_problems = dict()
-        solved_something = set()
-        _106 = read_106()
+        read_106()
     else:
         for arg in args:
             if (arg == 'points'):
-                _106 = read_106()
+                read_106()
+                solved_problems = sorted_by_key(solved_problems, problem_comparator, 2)
             elif (arg == 'solved_problems'):
                 solved_problems = dict()
 
     write_solved_problems()
 
 def solved(message, forced=False):
+    global solved_problems
+
     problems = [i for i in message['text'].split(' ') if len(i) != 0][1:]
     solver = vk_map[message['from_id']]
     not_problems = list()
@@ -304,9 +326,7 @@ def solved(message, forced=False):
         message_text = 'данные номера: ' + otformatirovat(not_problems) + ' выглядят так, будто вы описались. Убедитесь, что вы используете русские буквы. Если вы не описались используйте \\force_solved.'
         send_message(message_text, message['peer_id'])
 
-    for problem in solved_problems:
-        solved_problems[problem] = sorted(solved_problems[problem], key=lambda x: _106[x])
-
+    solved_problems = sorted_by_key(solved_problems, problem_comparator, 2)
     write_solved_problems()
 
 def not_solved(message):
@@ -342,7 +362,7 @@ def increase_priority(message):
         else:
             not_in_106.append(solver.lower())
 
-    _106 = sorted_by_key(_106)
+    _106 = sorted_by_key(_106, lambda x: -x[1], 1)
 
     if (len(not_in_106) != 0):
         message_text = 'не нашел ' + otformatirovat(not_in_106) + ' в 106 группе)) Попробуйте написать фамилии по русски, желательно как в журнале Орлова.'
@@ -351,6 +371,10 @@ def increase_priority(message):
     write_solved_problems()
         
 def distribution(message):
+    if (len(solved_problems) == 0):
+        send_message('никто ничего не решил)))', message['peer_id'])
+        return
+
     distribution = get_distribution()
     message_text = ''
 
